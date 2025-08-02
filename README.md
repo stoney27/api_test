@@ -39,10 +39,10 @@ api_test/
 
 
 1. **Access the application**:
-This project I served it up on port 3030 (the original user mentioned 8080 was already in use). You can access the application at:
-   - Main page: http://localhost:3030
-   - API endpoints: http://localhost:3030/api/v1/users or http://localhost:3030/api/v1/products
-   - Static files: http://localhost:3030/static/
+This project I served it up on port 8080 (the original user mentioned 8080 was already in use). You can access the application at:
+   - Main page: http://localhost:8080
+   - API endpoints: http://localhost:8080/api/v1/users or http://localhost:8080/api/v1/products
+   - Static files: http://localhost:8080/static/
 
 ### Static File Serving Setup
 

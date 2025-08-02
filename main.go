@@ -19,8 +19,8 @@ func main() {
 	} else {
 		log.Println("Database connection successful")
 	}
-	// need to run on 3030 port already had 8080 being used
-	apiServer := NewAPIServer(":3030", db)
+	// Create and run the API server
+	apiServer := NewAPIServer(":8080", db)
 	log.Printf("About to start server on %s", apiServer.addr)
 	if err := apiServer.Run(); err != nil {
 		log.Fatal("Error starting API server:", err)
