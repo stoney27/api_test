@@ -2,10 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"embed"
+	"io/fs"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
@@ -13,6 +13,9 @@ import (
 	"github.com/stoney27/api_test/product"
 	"github.com/stoney27/api_test/user"
 )
+
+//go:embed static/*
+var staticFiles embed.FS
 
 type APIServer struct {
 	addr string
@@ -29,12 +32,6 @@ func NewAPIServer(addr string, db *sql.DB) *APIServer {
 func (s *APIServer) Run() error {
 	router := mux.NewRouter()
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Fatal("Error getting working directory:", err)
-	}
-	log.Println("Current working directory:", cwd)
-
 	subrouter := router.PathPrefix("/api/v1").Subrouter()
 
 	userStore := user.NewStore(s.db)
@@ -45,22 +42,26 @@ func (s *APIServer) Run() error {
 	productHandler := product.NewHandler(productStore)
 	productHandler.RegisterRoutes(subrouter)
 
-	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
+	// Create a sub-filesystem for static files
+	staticFS, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		log.Fatal("Error creating static filesystem:", err)
+	}
+
+	// Serve static files from embedded filesystem
+	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-
-		absPath, err := filepath.Abs("./static/main.html")
+		// Serve main.html from embedded filesystem
+		data, err := staticFiles.ReadFile("static/main.html")
 		if err != nil {
-			log.Println("Error getting absolute path:", err)
-		} else {
-			log.Println("Serving file from:", absPath)
+			log.Println("Error reading main.html:", err)
+			http.Error(w, "File not found", http.StatusNotFound)
+			return
 		}
-		http.ServeFile(w, r, "./static/main.html")
-
-		// log.Println("Serving / with static HTML")
-		//   w.Header().Set("Content-Type", "text/html")
-		//   w.WriteHeader(http.StatusOK)
-		//   w.Write([]byte(`<html><body><h1>Hello from Go server!</h1></body></html>`))
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
 	})
 
 	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +69,18 @@ func (s *APIServer) Run() error {
 		http.NotFound(w, r)
 	})
 
-	router.Handle("/favicon.ico", http.FileServer(http.Dir("./static")))
+	// Serve favicon from embedded filesystem
+	router.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		data, err := staticFiles.ReadFile("static/favicon.ico")
+		if err != nil {
+			log.Println("Error reading favicon.ico:", err)
+			http.Error(w, "File not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "image/x-icon")
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	})
 
 	log.Println("Listening on", s.addr)
 
